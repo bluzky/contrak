@@ -1,7 +1,62 @@
 defmodule Contrak do
   @moduledoc """
 
-  `Contract` helps to define a contract for function call, and do validate contract data with:
+  `Contrak` helps to validate data with given schema:
+
+  ```elixir
+  task_schema = %{
+    title: [type: :string, required: true, length: [min: 20]],
+    description: :string,
+    tag: [type: {:array, :string}, default: []]
+    point: [type: :integer, number: [min: 0]],
+    due_date: [type: NaiveDateTime, default: &seven_day_from_now/0] ,
+    assignee: [type: {:array, User}, required: true],
+    attachments: [
+      type:
+      {:array,
+       %{
+         name: [type: :string, required: true],
+         url: :string
+       }}
+    ]
+  }
+
+  case Contrak.validate(data, task_schema) do
+    {:ok, valid_data} ->
+        # do your logic
+
+    {:error, errors} ->
+        IO.inspect(errors)
+  end
+  ```
+
+  `Contrak` also do:
+  - Support nested type
+  - Clean not allowed fields
+
+  **NOTES: Contract only validate data, not cast data**
+
+  ## Schema definition
+  `Contrak` provide a simple schema definition:
+  `<field_name>: [type: <type>, required: <true|false>, default: <value|function>, [...validation]]`
+
+  Shorthand form if you only check for type:
+  `<field_name>: <type>`
+
+  - `type` is all types supported by `Valdi.validate_type`, and extended to support nested type.
+    Nested type is just another schema.
+
+  - `default`: could be a function `func/0` or a value. Default function is invoked for every time `validate` is called.
+    If not set, default value is `nil`
+
+  - `required`: if set to `true`, validate if a field does exist and not `nil`. Default is `false`.
+
+  - `validations`: all validation support by `Valdi`, if value is `nil` then all validation is skip
+
+  For more details, please check document for `Contrak.Schema`
+
+  ## Validations
+  `Contrak` uses [Valdi](https://github.com/bluzky/valdi) to validate data. So you can use all validation from `Valdi`. This is list of available validation for current version of Valdi:
 
   - Validate type
   - Validate required
@@ -10,11 +65,11 @@ defmodule Contrak do
   - Validate number
   - Validate string against regex pattern
   - Custom validation function
-  - With support nested type
-  - Clean not allowed fields
 
+  Please check [Valdi document](https://hexdocs.pm/valdi/readme.html) for more details
+
+  **Another example**
   ```elixir
-
   @update_user_contract %{
     user: [type: User, required: true],
     attributes: [type: %{
@@ -34,165 +89,6 @@ defmodule Contrak do
     end
   end
 
-  ```
-
-  **NOTES: Contract only validate data, not cast data**
-
-  ## Support validation
-
-  **Type**
-
-  Support built-in types;
-  - `boolean`
-  - `integer`,
-  - `float`
-  - `number` - string or integer
-  - `string`
-  - `tuple`
-  - `map`
-  - `array`
-  - `list`
-  - `atom`
-  - `function`
-  - `keyword`
-  - `struct`
-  - `array` of type
-
-  Example:
-
-  ```elixir
-  Contrak.validate(%{name: "Bluz"}, %{name: [type: :string]})
-  Contrak.validate(%{id: 123}, %{name: [type: :integer]})
-  Contrak.validate(%{id: 123}, %{name: [type: {:array, :integer}]})
-  Contrak.validate(%{user: %User{}}, %{user: [type: User]})
-  Contrak.validate(%{user: %User{}}, %{user: [type: {:array: User}]})
-  ```
-
-  **Required**
-
-  ```elixir
-  Contrak.validate(%{name: "Bluz"}, %{name: [type: :string, required: true]})
-  ```
-
-  **Allow nil**
-
-  ```elixir
-  Contrak.validate(
-                        %{name: "Bluz", email: nil},
-                        %{
-                          name: [type: :string],
-                          email: [type: string, allow_nil: false]
-                         })
-  ```
-
-
-  **Inclusion/Exclusion**
-
-  ```elixir
-  Contrak.validate(
-                  %{status: "active"},
-                  %{status: [type: :string, in: ~w(active in_active)]}
-                 )
-
-  Contrak.validate(
-                  %{status: "active"},
-                  %{status: [type: :string, not_in: ~w(banned locked)]}
-                 )
-  ```
-
-  **Format**
-
-  Validate string against regex pattern
-
-  ```elixir
-  Contrak.validate(
-                %{email: "Bluzblu@gm.com"},
-                %{name: [type: :string, format: ~r/.+?@.+\.com/]
-                })
-  ```
-
-  **Number**
-
-  Validate number value
-
-  ```elixir
-  Contrak.validate(
-                %{age: 200},
-                %{age: [type: :integer, number[greater_than: 0, less_than: 100]]
-                })
-  ```
-
-  Support conditions
-  - `equal_to`
-  - `greater_than_or_equal_to` | `min`
-  - `greater_than`
-  - `less_than`
-  - `less_than_or_equal_to` | `max`
-
-
-
-  **Length**
-
-  Check length of `list`, `map`, `string`, `keyword`, `tuple`
-  Supported condtions are the same with **Number** check
-
-  ```elixir
-  Contrak.validate(
-                %{title: "Hello world"},
-                %{age: [type: :string, length: [min: 10, max: 100]]
-                })
-  ```
-
-
-  **Custom validation function**
-
-  Invoke given function to validate value.
-  The function signature must be
-
-  ```
-  func(field_name ::(String.t() | atom()), value :: any(), all_params :: map()) :: :ok | {:error, message}
-  ```
-
-  ```elixir
-  Contrak.validate(
-                %{email: "blue@hmail.com"},
-                %{email: [type: :string, func: &validate_email/3]})
-
-  def validate_email(_name, email, _params) do
-    if Regex.match?(~r/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}$/, email) do
-      :ok
-    else
-      {:error, "not a valid email"}
-    end
-  end
-  ```
-
-  **Nested map**
-
-  Nested map declaration is the same.
-
-  ```elixir
-  data =   %{name: "Doe John", address: %{city: "HCM", street: "NVL"} }
-  schema = %{
-      name: [type: :string],
-      address: [type: %{
-              city: [type: :string],
-              street: [type: :string]
-            }]
-    }
-  Contrak.validate(data, schema)
-  ```
-
-  **Nested list**
-
-  ```elixir
-  data =   %{name: "Doe John", address: [%{city: "HCM", street: "NVL"}] }
-  address = %{ city: [type: :string],  street: [type: :string] }
-  schema = %{
-      name: [type: :string],
-      address: [type: {:array, address}]
-     }
-  Contrak.validate(data, schema)
   ```
   """
 

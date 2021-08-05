@@ -12,7 +12,7 @@ defmodule ContrakTest do
   test "default value is nil if not set" do
     assert {:ok, %{"key" => nil}} =
              Contrak.validate(%{}, %{
-               "key" => [type: :string]
+               "key" => :string
              })
   end
 
@@ -72,7 +72,7 @@ defmodule ContrakTest do
     |> Enum.each(fn [type, value, expect] ->
       rs =
         Contrak.validate(%{"key" => value}, %{
-          "key" => [type: type]
+          "key" => type
         })
 
       if expect == :ok do
@@ -274,12 +274,10 @@ defmodule ContrakTest do
 
     schema = %{
       name: [type: :string],
-      address: [
-        type: %{
-          city: [type: :string],
-          street: [type: :string]
-        }
-      ]
+      address: %{
+        city: [type: :string],
+        street: [type: :string]
+      }
     }
 
     assert {:ok, %{name: "Doe John", address: %{city: "HCM", street: "NVL"}}} =
