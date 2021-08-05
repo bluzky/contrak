@@ -59,10 +59,27 @@ Documentation here [https://hexdocs.pm/contrak](https://hexdocs.pm/contrak).
 `Contrak` provide a simple schema definition:
 
   `<field_name>: [type: <type>, required: <true|false>, default: <value|function>, [...validation]]`
+  
+  ```elixir
+  %{
+    product_name: [type: :string, required: true, length: [min: 20]],
+    sku: [type: :string, required: true],
+    selling_price: [type: :integer, required: true, number: [min: 0]]
+    state: [type: :string, default: "draft"]
+  }
+  ```
 
   Shorthand form if you only check for type:
   
   `<field_name>: <type>`
+  
+  ```elixir
+  %{
+    product_name: :string,
+    sku: :string,
+    price: :integer
+  }
+  ```
 
   - `type` is all types supported by `Valdi.validate_type`, and extended to support nested type.
     Nested type is just another schema.
@@ -74,7 +91,7 @@ Documentation here [https://hexdocs.pm/contrak](https://hexdocs.pm/contrak).
 
   - `validations`: all validation support by `Valdi`, if value is `nil` then all validation is skip
 
-  For more details, please check document for `Contrak.Schema`
+  For more details, please check document for [Contrak.Schema](https://hexdocs.pm/contrak/Contrak.Schema.html)
 
 ## Validations
 
