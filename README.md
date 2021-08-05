@@ -30,12 +30,10 @@ Documentation here [https://hexdocs.pm/contrak](https://hexdocs.pm/contrak).
     due_date: [type: NaiveDateTime, default: &seven_day_from_now/0] ,
     assignee: [type: {:array, User}, required: true],
     attachments: [
-      type:
-      {:array,
-       %{
+      type: %{
          name: [type: :string, required: true],
          url: :string
-       }}
+       }
     ]
   }
 
