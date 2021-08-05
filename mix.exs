@@ -4,8 +4,8 @@ defmodule Contrak.MixProject do
   def project do
     [
       app: :contrak,
-      version: "0.1.0",
-      elixir: "~> 1.12",
+      version: "0.1.1",
+      elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       test_coverage: [tool: ExCoveralls],

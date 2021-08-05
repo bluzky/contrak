@@ -11,7 +11,7 @@ Adding `contrak` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:contrak, "~> 0.1.0"}
+    {:contrak, "~> 0.1.1"}
   ]
 end
 ```
