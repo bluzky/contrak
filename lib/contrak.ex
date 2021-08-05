@@ -1,18 +1,272 @@
 defmodule Contrak do
   @moduledoc """
-  Documentation for `Contrak`.
+
+  `Contract` helps to define a contract for function call, and do validate contract data with:
+
+  - Validate type
+  - Validate required
+  - Validate `in`|`not_in` enum
+  - Valiate length for `string`, `enumerable`
+  - Validate number
+  - Validate string against regex pattern
+  - Custom validation function
+  - With support nested type
+  - Clean not allowed fields
+
+  ```elixir
+
+  @update_user_contract %{
+    user: [type: User, required: true],
+    attributes: [type: %{
+      email: [type: :string],
+      status: [type: :string, in: ~w(active in_active)]
+      age: [type: :integer, number: [min: 10, max: 80]],
+    }, required: true]
+  }
+
+  def update_user(contract) do
+    with {:ok, validated_data} do
+       validated_data.user
+       |> Ecto.Changeset.change(validated_data.attributes)
+       |> Repo.update
+    else
+      {:error, errors} -> IO.inspect(errors)
+    end
+  end
+
+  ```
+
+  **NOTES: Contract only validate data, not cast data**
+
+  ## Support validation
+
+  **Type**
+
+  Support built-in types;
+  - `boolean`
+  - `integer`,
+  - `float`
+  - `number` - string or integer
+  - `string`
+  - `tuple`
+  - `map`
+  - `array`
+  - `list`
+  - `atom`
+  - `function`
+  - `keyword`
+  - `struct`
+  - `array` of type
+
+  Example:
+
+  ```elixir
+  Contrak.validate(%{name: "Bluz"}, %{name: [type: :string]})
+  Contrak.validate(%{id: 123}, %{name: [type: :integer]})
+  Contrak.validate(%{id: 123}, %{name: [type: {:array, :integer}]})
+  Contrak.validate(%{user: %User{}}, %{user: [type: User]})
+  Contrak.validate(%{user: %User{}}, %{user: [type: {:array: User}]})
+  ```
+
+  **Required**
+
+  ```elixir
+  Contrak.validate(%{name: "Bluz"}, %{name: [type: :string, required: true]})
+  ```
+
+  **Allow nil**
+
+  ```elixir
+  Contrak.validate(
+                        %{name: "Bluz", email: nil},
+                        %{
+                          name: [type: :string],
+                          email: [type: string, allow_nil: false]
+                         })
+  ```
+
+
+  **Inclusion/Exclusion**
+
+  ```elixir
+  Contrak.validate(
+                  %{status: "active"},
+                  %{status: [type: :string, in: ~w(active in_active)]}
+                 )
+
+  Contrak.validate(
+                  %{status: "active"},
+                  %{status: [type: :string, not_in: ~w(banned locked)]}
+                 )
+  ```
+
+  **Format**
+
+  Validate string against regex pattern
+
+  ```elixir
+  Contrak.validate(
+                %{email: "Bluzblu@gm.com"},
+                %{name: [type: :string, format: ~r/.+?@.+\.com/]
+                })
+  ```
+
+  **Number**
+
+  Validate number value
+
+  ```elixir
+  Contrak.validate(
+                %{age: 200},
+                %{age: [type: :integer, number[greater_than: 0, less_than: 100]]
+                })
+  ```
+
+  Support conditions
+  - `equal_to`
+  - `greater_than_or_equal_to` | `min`
+  - `greater_than`
+  - `less_than`
+  - `less_than_or_equal_to` | `max`
+
+
+
+  **Length**
+
+  Check length of `list`, `map`, `string`, `keyword`, `tuple`
+  Supported condtions are the same with **Number** check
+
+  ```elixir
+  Contrak.validate(
+                %{title: "Hello world"},
+                %{age: [type: :string, length: [min: 10, max: 100]]
+                })
+  ```
+
+
+  **Custom validation function**
+
+  Invoke given function to validate value.
+  The function signature must be
+
+  ```
+  func(field_name ::(String.t() | atom()), value :: any(), all_params :: map()) :: :ok | {:error, message}
+  ```
+
+  ```elixir
+  Contrak.validate(
+                %{email: "blue@hmail.com"},
+                %{email: [type: :string, func: &validate_email/3]})
+
+  def validate_email(_name, email, _params) do
+    if Regex.match?(~r/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}$/, email) do
+      :ok
+    else
+      {:error, "not a valid email"}
+    end
+  end
+  ```
+
+  **Nested map**
+
+  Nested map declaration is the same.
+
+  ```elixir
+  data =   %{name: "Doe John", address: %{city: "HCM", street: "NVL"} }
+  schema = %{
+      name: [type: :string],
+      address: [type: %{
+              city: [type: :string],
+              street: [type: :string]
+            }]
+    }
+  Contrak.validate(data, schema)
+  ```
+
+  **Nested list**
+
+  ```elixir
+  data =   %{name: "Doe John", address: [%{city: "HCM", street: "NVL"}] }
+  address = %{ city: [type: :string],  street: [type: :string] }
+  schema = %{
+      name: [type: :string],
+      address: [type: {:array, address}]
+     }
+  Contrak.validate(data, schema)
+  ```
   """
 
   @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> Contrak.hello()
-      :world
-
+  Validate data against given schema
   """
-  def hello do
-    :world
+
+  @spec validate(data :: map(), schema :: map()) :: {:ok, map()} | {:error, errors :: map()}
+  def validate(data, schema) do
+    {status, results} =
+      schema
+      |> Contrak.Schema.expand()
+      |> Enum.map(fn {field_name, validations} ->
+        {default, validations} = Keyword.pop(validations, :default)
+        value = Map.get(data, field_name, default)
+
+        validations = sort_validator(validations)
+
+        {status, results} =
+          Enum.reduce(validations, {:ok, value}, fn
+            _, {:error, _} = error ->
+              error
+
+            validation, acc ->
+              case do_validate(value, validation, data) do
+                :ok -> acc
+                {:ok, data} -> {:ok, data}
+                {:error, msg} when is_list(msg) -> {:error, msg}
+                {:error, msg} -> {:error, [msg]}
+              end
+          end)
+
+        {status, {field_name, results}}
+      end)
+      |> collect_schema_result()
+
+    {status, Map.new(results)}
+  end
+
+  # prioritize checking
+  # `required` -> `type` -> others
+  defp sort_validator(validators) do
+    {required, validators} = Keyword.pop(validators, :required, false)
+    {type, validators} = Keyword.pop(validators, :type, :any)
+    validators = [{:type, type} | validators]
+    [{:required, required} | validators]
+  end
+
+  defp do_validate(value, {:required, _} = validation, _),
+    do: Valdi.validate(value, [validation])
+
+  # skip other validation if nil
+  defp do_validate(nil, _, _), do: :ok
+  # validate nested type
+  defp do_validate(value, {:type, type}, _) when is_map(type) do
+    Valdi.validate_embed(value, {:embed, __MODULE__, type})
+  end
+
+  defp do_validate(value, {:type, {:array, type}}, _) when is_map(type) do
+    Valdi.validate_embed(value, {:array, {:embed, __MODULE__, type}})
+  end
+
+  defp do_validate(value, {:func, func}, opts) when is_function(func, 3) do
+    func.(opts[:field_name], value, opts[:data])
+  end
+
+  defp do_validate(value, validation, _), do: Valdi.validate(value, [validation])
+
+  defp collect_schema_result(results) do
+    Enum.reduce(results, {:ok, []}, fn
+      {:ok, data}, {:ok, acc} -> {:ok, [data | acc]}
+      {:error, error}, {:ok, _} -> {:error, [error]}
+      {:error, error}, {:error, acc} -> {:error, [error | acc]}
+      _, acc -> acc
+    end)
   end
 end
