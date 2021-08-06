@@ -4,6 +4,8 @@
 
 [![Build Status](https://github.com/bluzky/contrak/workflows/Elixir%20CI/badge.svg)](https://github.com/bluzky/contrak/actions) [![Coverage Status](https://coveralls.io/repos/github/bluzky/contrak/badge.svg?branch=main)](https://coveralls.io/github/bluzky/contrak?branch=main) [![Hex Version](https://img.shields.io/hexpm/v/contrak.svg)](https://hex.pm/packages/contrak) [![docs](https://img.shields.io/badge/docs-hexpm-blue.svg)](https://hexdocs.pm/contrak/)
 
+This library is best suited for validating compicated params contract/schema passing to your function. For example when you build a client library that call 3rd API and you want to make sure all parameters are valid before processing. If you want to cast external data to your internal schema, take a look at [Tarams](https://github.com/bluzky/tarams/)
+
 ## Installation
 
 Adding `contrak` to your list of dependencies in `mix.exs`:
