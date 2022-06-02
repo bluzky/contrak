@@ -4,7 +4,7 @@ defmodule Contrak.MixProject do
   def project do
     [
       app: :contrak,
-      version: "0.1.1",
+      version: "0.2.0",
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -54,7 +54,7 @@ defmodule Contrak.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:valdi, "~> 0.2.0"},
+      {:valdi, "~> 0.3.0"},
       {:ex_doc, "~> 0.24", only: :dev, runtime: false},
       {:excoveralls, "~> 0.14", only: :test}
     ]
